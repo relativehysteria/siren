@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import discord
 from log import globalLog as gLog
-from bot import Siren
+from cog import Siren
 
 if __name__ != "__main__":
     gLog.debug(f"{__file__} executed but is not __main__")
