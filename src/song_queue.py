@@ -215,6 +215,9 @@ class SongQueue():
 
     def skip(self):
         """Skips the currently playing song"""
+        # Stop looping the song
+        self.loop_song = False
+
         # Simply stop playing and the background task will queue up a new song
         if self.voice.is_playing():
             self.voice.stop()
@@ -256,22 +259,25 @@ class SongQueue():
                 gLog.warn(f"While playing: {e}. (Probably left the channel.)")
                 break
 
-            # If the there's no next song to play, wait for a new song
-            # to become available
-            if self.next_song is None:
-                self.next_song = self.next(block=True, extract_song=True)
+            # If we're currently looping, don't even dare to delay >:(
+            if not self.loop_song:
+                # If the there's no next song to play, wait for a new song
+                # to become available
+                if self.next_song is None:
+                    self.next_song = self.next(block=True, extract_song=True)
 
-            # If there is a song available but it hasn't been extracted yet,
-            # extract it
-            if self.next_song[1] is None:
-                self.next_song = self.extract_song(self.next_song[0])
+                # If there is a song available but it hasn't been extracted yet,
+                # extract it
+                if self.next_song[1] is None:
+                    self.next_song = self.extract_song(self.next_song[0])
 
-            # If the song is invalid, wait for a new *valid* song
-            if self.next_song is None:
-                self.next_song = self.next(block=True, extract_song=True)
+                # If the song is invalid, wait for a new *valid* song
+                if self.next_song is None:
+                    self.next_song = self.next(block=True, extract_song=True)
 
             # At this point `self.next_song` is set to a valid song, so we can
-            # safely wait for the current song to finish
+            # safely wait for the current song to finish.
+            # Either that or we're looping the current song
             self._start_next_song.wait()
 
 
