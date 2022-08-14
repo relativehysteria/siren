@@ -1,5 +1,5 @@
-Create two files -- `APPLICATION_ID` and `TOKEN` -- in the root directory of
-this bot. Put your application id and your token into them.
+Create a file -- `TOKEN` -- in the root directory of this bot and put your token
+into it.
 
 Requires dy-cord and pynacl.
 
