@@ -188,7 +188,7 @@ class SongQueue():
     def clear(self):
         """Clears the queue"""
         self._song_available.clear()
-        self.clear()
+        self.songs.clear()
 
 
     def pause(self):
