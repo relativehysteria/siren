@@ -14,7 +14,7 @@ class Song:
         # Streams are parsed at the end.
         self.stream = None
 
-        if url is None:
+        if url is None or not isinstance(str, url):
             return
 
         ytdl_result = get_metadata_from_url(url)
