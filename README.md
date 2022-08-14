@@ -1,7 +1,7 @@
 Create a file -- `TOKEN` -- in the root directory of this bot and put your token
 into it.
 
-Requires dy-cord and pynacl.
+Requires py-cord and pynacl.
 
 ### TODO
 * When the bot is kicked from a VC, the queue is not destroyed and the bot can't
