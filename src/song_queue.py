@@ -7,6 +7,10 @@ from log import globalLog as gLog
 
 class SongQueue():
     """The song queue."""
+    # Global cache for song metadata
+    # { url: Song }
+    global_cache = dict()
+
     def __init__(self):
         # The song queue.
         # [(url, Song)]
@@ -111,12 +115,9 @@ class SongQueue():
         yourself, set `extract_song` to False. Even if the flag is set to False,
         the metadata may already be cached in.
         """
-        # Create a dummy song
-        song = Song
-        song.stream = None
-
         # Try to get a valid song in a loop
-        while song.stream is None:
+        song = None
+        while song is None:
             # If there isn't a song available and we're not blocking, return.
             # Otherwise wait for a song to appear.
             if not self._song_available.is_set():
@@ -140,17 +141,54 @@ class SongQueue():
             if not extract_song:
                 return (url, song)
 
-            # Extract the metadata. If it's invalid, the loop will repeat
-            song = Song(url)
+            # Get the song. If the song is invalid, this loop will repeat
+            (url, song) = self.extract_song(url)
 
         # Return what we have found
+        return (url, song)
+
+
+    def invalidate_cache(self, url: str):
+        """Invalidates (removes) a song entry from the global cache."""
+        SongQueue.global_cache.pop(url, None)
+
+
+    def extract_song(self, url: str, recache=False) -> (str, Song):
+        """
+        Extracts a song and returns the (url, Song) pair.
+        This function uses the global cache. If you want to recache a song
+        (invalidate the old entry), set `recache` to True.
+
+        If the song is invalid (if the metadata doesn't contain a stream),
+        returns None.
+        """
+        song = None
+
+        # If we use the cache, check if we have the song cached already
+        if not recache:
+            song = SongQueue.global_cache.get(url)
+
+            # If we found the song, return it
+            if song is not None:
+                return (url, song)
+
+        # Extract the song metadata
+        if song is None:
+            song = Song(url)
+
+        # Check that we have a valid song
+        if song.stream is None:
+            return None
+
+        # Cache the result and return it
+        SongQueue.global_cache[url] = song
         return (url, song)
 
 
     def clear(self):
         """Clears the queue"""
         self._song_available.clear()
-        self.queue.clear()
+        self.clear()
 
 
     def pause(self):
@@ -215,7 +253,8 @@ class SongQueue():
             try:
                 self.voice.play(source, after=self._play_next_song)
             except Exception as e:
-                gLog.warn("While playing: {e}. (Probably left the channel.)")
+                gLog.warn(f"While playing: {e}. (Probably left the channel.)")
+                break
 
             # If the there's no next song to play, wait for a new song
             # to become available
@@ -223,12 +262,12 @@ class SongQueue():
                 self.next_song = self.next(block=True, extract_song=True)
 
             # If there is a song available but it hasn't been extracted yet,
-            # do so
+            # extract it
             if self.next_song[1] is None:
-                self.next_song = (self.next_song[0], Song(self.next_song[0]))
+                self.next_song = self.extract_song(self.next_song[0])
 
             # If the song is invalid, wait for a new *valid* song
-            if self.next_song[1].stream is None:
+            if self.next_song is None:
                 self.next_song = self.next(block=True, extract_song=True)
 
             # At this point `self.next_song` is set to a valid song, so we can
