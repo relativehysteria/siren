@@ -36,3 +36,7 @@ Requires dy-cord and pynacl.
 * Create an embed if we play a single song and not a playlist.
 
 * Create a `/current` command to show an embed for the currently playing song.
+
+* The bot caches `next_song` when on disconnect. Fix that.
+
+* Use a global cache, not a local one for each guild.
