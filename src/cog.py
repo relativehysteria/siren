@@ -7,9 +7,12 @@ import discord
 from discord import Option
 from discord import ApplicationContext
 from discord import WebhookMessage
+from discord import Interaction
+from discord import Embed
 from discord.ext import commands
 from song_queue import SongQueue
 from song import get_urls_from_query
+from song import Song
 from log import globalLog as gLog
 
 class Siren(commands.Cog):
@@ -149,6 +152,25 @@ class Siren(commands.Cog):
         await response.edit_original_message(content="Skipped!")
 
 
+    @commands.slash_command(name="current", description="Shows the currently playing song")
+    async def show_current(self, ctx: ApplicationContext):
+        """Create and send an embed for the currently playing song."""
+        # Get the queue
+        (queue, response) = await self.get_server_queue(ctx)
+        if not isinstance(queue, SongQueue):
+            return
+
+        # Get the currently playing song
+        current_song = queue.current_song
+        if current_song is None or current_song[1] is None:
+            await response.edit_original_message(content="No song is currently playing")
+            return
+
+        # Create the embed and send it
+        embed = create_song_embed(current_song[1])
+        await response.edit_original_message(embed=embed)
+
+
     @commands.slash_command(name="shuffle", description="Turn on/off shuffling")
     async def toggle_shuffle_mode(self, ctx: ApplicationContext):
         """Toggle the shuffle mode of a guild's queue"""
@@ -220,3 +242,36 @@ class Siren(commands.Cog):
         # Return the queue
         resp = await ctx.respond(content="I'm connected to a VC!")
         return (queue, resp)
+
+
+def create_song_embed(song: Song) -> Embed:
+    """Creates an embed for a song and returns it"""
+    # Make sure that we have a valid song
+    if song.stream is None:
+        return
+
+    # Extract the data
+    query_url = song.url
+    channel   = song.uploader
+    duration  = song.duration_formatted
+    thumbnail = song.thumbnail
+    title     = f"{song.title}"
+
+    # If we have a query url, make the title clickable
+    if song.url is not None and title != "":
+        title = f"[{title}]({query_url})"
+
+    # If we have an uploader url, make the channel clickable
+    if song.uploader_url is not None and channel != "":
+        channel = f"[{channel}]({song.uploader_url})"
+
+    # Create the embed
+    embed = Embed(title="Enqueued", description=title)
+
+    # Add the various information fields
+    embed.add_field(name="Duration", value=duration, inline=True)
+    embed.add_field(name="Uploader", value=channel, inline=True)
+    if thumbnail is not None or thumbnail != "":
+        embed.set_thumbnail(url=thumbnail)
+
+    return embed

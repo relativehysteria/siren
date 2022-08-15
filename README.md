@@ -32,5 +32,3 @@ Requires py-cord and pynacl.
 
 * Write a destructor for SongQueue and call it whenever the bot is disconnected
   from a voice chat.
-
-* Create a `/current` command to show an embed for the currently playing song.
