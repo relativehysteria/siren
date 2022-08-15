@@ -153,6 +153,12 @@ class SongQueue():
         SongQueue.global_cache.pop(url, None)
 
 
+    def invalidate_next_song(self):
+        """Uncaches the next_song and pushes it to the back of the queue"""
+        self.push(self.next_song)
+        self.next_song = None
+
+
     def extract_song(self, url: str, recache=False) -> (str, Song):
         """
         Extracts a song and returns the (url, Song) pair.
@@ -187,6 +193,7 @@ class SongQueue():
 
     def clear(self):
         """Clears the queue"""
+        self.invalidate_next_song()
         self._song_available.clear()
         self.songs.clear()
 
@@ -209,8 +216,7 @@ class SongQueue():
         self.shuffle = not self.shuffle
 
         # Invalidate next_song so that we don't cache stale songs
-        self.push(self.next_song)
-        self.next_song = None
+        self.invalidate_next_song()
 
 
     def skip(self):
