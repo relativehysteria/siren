@@ -3,6 +3,8 @@ into it.
 
 Requires py-cord and pynacl.
 
+__There are plenty of race conditions in the `song_queue.py` code but it does in fact work in most cases!__ :D
+
 ### TODO
 * When the bot is kicked from a VC, the queue is not destroyed and the bot can't
   reconnect (because a queue for the guild is already present -- the bot thinks

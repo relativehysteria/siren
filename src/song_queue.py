@@ -193,7 +193,8 @@ class SongQueue():
 
     def clear(self):
         """Clears the queue"""
-        self.invalidate_next_song()
+        # Invalidate the song but don't push it back to the queue
+        self.next_song = None
         self._song_available.clear()
         self.songs.clear()
 
