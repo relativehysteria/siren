@@ -266,8 +266,13 @@ class SongQueue():
                 gLog.warn(f"While playing: {e}. (Probably left the channel.)")
                 break
 
+
             # If we're currently looping, don't even dare to delay >:(
             if not self.loop_song:
+
+                # XXX: If we enable looping at this point, these functions
+                #      will still be blocking...
+
                 # If the there's no next song to play, wait for a new song
                 # to become available
                 if self.next_song is None:
