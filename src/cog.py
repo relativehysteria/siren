@@ -191,13 +191,13 @@ class Siren(commands.Cog):
 
         # Get the currently playing song
         current_song = queue.current_song
-        if current_song is None or current_song[1] is None:
+        if current_song is None:
             gLog.debug("No song currently playing.")
             await response.edit_original_message(content="No song is currently playing")
             return
 
         # Create the embed and send it
-        embed = create_song_embed(current_song[1])
+        embed = create_song_embed(current_song)
         await response.edit_original_message(embed=embed)
 
 
