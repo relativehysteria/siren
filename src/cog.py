@@ -3,6 +3,7 @@
 # The intents required by this bot are:
 #     voice_states
 
+from os import sched_getaffinity
 import discord
 from discord import Option
 from discord import ApplicationContext
@@ -13,16 +14,29 @@ from discord.ext import commands
 from song_queue import SongQueue
 from song import get_urls_from_query
 from song import Song
+from song_cache import SongCache
 from log import globalLog as gLog
 
 class Siren(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, caching_processes: int = 0):
+        """Initialize the cog.
+
+        `bot` is the bot this cog is initialized in.
+        `caching_processes` is the amount of subprocesses caching and extracting
+        the song metadata in the background. If this less than 1, uses the value
+        returned by `len(os.sched_getaffinity(0))`
+        """
         # The bot this cog is assigned to
         self.bot = bot
 
         # Queues of the servers this bot is in
         # { guild_id: SongQueue }
         self.queues = {}
+
+        # Inner song metadata cache
+        if caching_processes < 1:
+            caching_processes = len(sched_getaffinity(0))
+        self.song_cache = SongCache(pool_size=caching_processes)
 
         gLog.debug("Siren cog initialized.")
 
@@ -34,7 +48,7 @@ class Siren(commands.Cog):
         If the author is not in a voice channel, or the bot can't join it,
         send an error message.
         """
-        gLog.debug("Got `/join`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/join`: {ctx.guild.name} >> {ctx.author}")
 
         # Check if we aren't connected to a voice channel already
         # and make sure that the author is in a VC
@@ -43,7 +57,7 @@ class Siren(commands.Cog):
             return
 
         # Create a new queue
-        queue = SongQueue()
+        queue = SongQueue(song_cache=self.song_cache)
 
         # Try and join the voice channel
         try:
@@ -64,7 +78,7 @@ class Siren(commands.Cog):
         If the author of the message is not in the same channel,
         the bot won't leave.
         """
-        gLog.debug("Got `/leave`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/leave`: {ctx.guild.name} >> {ctx.author}")
 
         # Get the queue for this guild and make sure we are connected to the
         # same VC as the author
@@ -88,7 +102,7 @@ class Siren(commands.Cog):
         query=Option(str, "The query to play", min_length=1, required=True))
     async def play(self, ctx: ApplicationContext, query):
         """Puts a song (or a playlist) into the queue."""
-        gLog.debug("Got `/play`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/play`: {ctx.guild.name} >> {ctx.author}")
 
         # Get the queue for this guild and make sure we are connected to the
         # same VC as the author
@@ -109,8 +123,7 @@ class Siren(commands.Cog):
         # Get a list of urls to a playlist (if a playlist was given, otherwise
         # just get [single_url]) and append them to the queue
         urls = get_urls_from_query(query)
-        for url in urls:
-            queue.push(url)
+        queue += urls
 
         # Edit the message to reflect our query status.
         query_msg = f"Queued up {len(urls)} song"
@@ -124,7 +137,7 @@ class Siren(commands.Cog):
     @commands.slash_command(name="pause", description="Pause/Unpause the current song")
     async def pause(self, ctx: ApplicationContext):
         """Pause the currently playing song."""
-        gLog.debug("Got `/pause`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/pause`: {ctx.guild.name} >> {ctx.author}")
 
         # Get the queue
         (queue, response) = await self.get_server_queue(ctx)
@@ -138,7 +151,7 @@ class Siren(commands.Cog):
 
     @commands.slash_command(name="clear", description="Clear the queue")
     async def clear_queue(self, ctx: ApplicationContext):
-        gLog.debug("Got `/clear`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/clear`: {ctx.guild.name} >> {ctx.author}")
 
         # Get the queue
         (queue, response) = await self.get_server_queue(ctx)
@@ -153,7 +166,7 @@ class Siren(commands.Cog):
 
     @commands.slash_command(name="skip", description="Skip the current song")
     async def skip_current_song(self, ctx: ApplicationContext):
-        gLog.debug("Got `/skip`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/skip`: {ctx.guild.name} >> {ctx.author}")
 
         """Skip the currently playing song."""
         # Get the queue
@@ -169,7 +182,7 @@ class Siren(commands.Cog):
     @commands.slash_command(name="current", description="Shows the currently playing song")
     async def show_current(self, ctx: ApplicationContext):
         """Create and send an embed for the currently playing song."""
-        gLog.debug("Got `/current`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/current`: {ctx.guild.name} >> {ctx.author}")
 
         # Get the queue
         (queue, response) = await self.get_server_queue(ctx)
@@ -191,7 +204,7 @@ class Siren(commands.Cog):
     @commands.slash_command(name="shuffle", description="Turn on/off shuffling")
     async def toggle_shuffle_mode(self, ctx: ApplicationContext):
         """Toggle the shuffle mode of a guild's queue"""
-        gLog.debug("Got `/shuffle`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/shuffle`: {ctx.guild.name} >> {ctx.author}")
 
         # Get the queue
         (queue, response) = await self.get_server_queue(ctx)
@@ -201,7 +214,7 @@ class Siren(commands.Cog):
         # Toggle the shuffle mode
         queue.toggle_shuffle()
 
-        gLog.debug("Shuffle in: {ctx.guild.name} >> {queue.shuffle}")
+        gLog.debug(f"Shuffle in: {ctx.guild.name} >> {queue.shuffle}")
 
         # Send a notification about the shuffle status
         msg = "Shuffle disabled."
@@ -213,7 +226,7 @@ class Siren(commands.Cog):
     @commands.slash_command(name="loop", description="Turn on/off song looping")
     async def toggle_song_loop_mode(self, ctx: ApplicationContext):
         """Toggle the song loop mode of a guild's queue"""
-        gLog.debug("Got `/loop`: {ctx.guild.name} >> {ctx.author}")
+        gLog.debug(f"Got `/loop`: {ctx.guild.name} >> {ctx.author}")
 
         # Get the queue
         (queue, response) = await self.get_server_queue(ctx)
@@ -223,7 +236,7 @@ class Siren(commands.Cog):
         # Toggle the loop mode
         queue.toggle_song_loop()
 
-        gLog.debug("Loop in: {ctx.guild.name} >> {queue.loop}")
+        gLog.debug(f"Loop in: {ctx.guild.name} >> {queue.loop}")
 
         # Send a notification about the shuffle status
         msg = "Looping disabled."

@@ -1,13 +1,14 @@
 import logging
+from multiprocessing import current_process
 
 # Settings for the primary logger
 USE_LOG_COLORS  = True   # Whether to use colored output in the terminal
 LOG_TO_FILE     = True   # Whether to log into a file
 LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 LOG_FILE        = r"siren_cog.log"
-LOG_LEVEL       = logging.INFO
-LOG_FORMAT      = \
-    "{asctime} | {levelname:^8} | {name} | ({filename}:{lineno}) >> {message}"
+LOG_LEVEL       = logging.DEBUG
+LOG_FORMAT      = "{asctime} | {levelname:^8} | {processName} | \
+({filename}:{lineno}) >> {message}"
 
 # A log formatter capable of outputting colors
 class ColoredFormatter(logging.Formatter):

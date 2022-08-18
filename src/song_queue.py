@@ -1,44 +1,31 @@
+import multiprocessing as mp
+import threading
 import discord
 from random import randint
 from itertools import islice
-import threading
+from song_cache import SongCache
 from song import Song
 from log import globalLog as gLog
 
-class SongQueue():
-    """The song queue."""
-    # Global cache for song metadata
-    # { url: Song }
-    global_cache = dict()
+class SongQueue:
+    """The song queue and the discord song player.
 
-    def __init__(self):
-        # The song queue.
-        # [(url, Song)]
-        #
-        # `url` is always present in the queue.
-        # `Song` is the metadata for the `url` and is not always present.
-        #
-        # Before an element can be popped from the queue, you have to make sure
-        # that `Song` is present. This either has to be done JIT if the song
-        # that we want to play has not yet been extracted, or in the background
-        # if we are currently playing a song.
+    Songs are enqueued as urls and cached in the `song_cache`.
+    """
+    def __init__(self, song_cache: SongCache):
+        # The song queue. A list of strings of urls: [ `url`: str ]
         self.songs = list()
 
         # An event that will be set if there is at least one song available
         self._song_available = threading.Event()
-
-        # Clear the flag as the list is initialized to empty
         self._song_available.clear()
+
+        # Extracted song metadata cache
+        self.cache = song_cache
 
         # (url, Song) pair of the currently playing song.
         # `Song` metadata has to be present at all times.
         self.current_song = None
-
-        # (url, Song) pair of the next song.
-        # `Song` metadata may not be present and ALWAYS has to be checked.
-        # For example, the `self.shuffle()` function always invalidates
-        # the cache.
-        self.next_song = None
 
         # Whether the currently playing song is looping
         self.loop_song = False
@@ -53,6 +40,7 @@ class SongQueue():
 
         # Indicates whether the next song should be played
         self._start_next_song = threading.Event()
+        self._start_next_song.clear()
 
         # Player background thread
         self._player_thread = threading.Thread(target=self._song_player_target)
@@ -80,13 +68,21 @@ class SongQueue():
 
     def __delitem__(self, idx):
         # If the queue will be empty, clear the song availibility flag
-        if len(self.songs) == 1:
-            self._song_available.clear()
         del self.songs[idx]
+        if len(self.songs) == 0:
+            self._song_available.clear()
 
 
     def __iter__(self):
         return self.songs.__iter__()
+
+
+    def __iadd__(self, value):
+        if not isinstance(value, list) and len(value) == 0:
+            return
+        self.songs += value
+        self.cache.extract_cache(value)
+        self._song_available.set()
 
 
     def __len__(self):
@@ -94,109 +90,50 @@ class SongQueue():
 
 
     def push(self, url: str, metadata: Song = None):
-        """Pushes a (url, Song) pair to the back of the queue"""
-        self.songs.append((url, metadata))
+        """Pushes a url to the back of the queue"""
+        self.songs.append(url)
+        self.cache.extract_cache([value])
         self._song_available.set()
 
 
-    def next(self, block=False, extract_song=False) -> (str, Song):
+    def pop(self, idx: int = -1) -> str:
+        """Pops and returns a url from the queue"""
+        if len(self.songs) == 1:
+            self._song_available.clear()
+        return self.songs.pop(idx)
+
+
+    def next(self, block: bool = False) -> str:
         """
-        Returns the next queued up ("url", `Song`) pair from the queue.
-        If the shuffle flag is set, returns a random pair.
-        The pair is removed from the queue.
+        Returns the next queued up url from the queue.
+        If the shuffle flag is set, returns a random url from the queue.
+        The url is removed from the queue.
 
-        If `block` is True, the function blocks until an element can be
-        retrieved from the queue (that is, blocks if the queue is empty).
-        If set to False, the function returns None if a pair can't be found.
-
-        If `extract_song` is True, this function will make sure that `Song` is
-        always present (that is, if the metadata hasn't yet been extracted,
-        this function will extract them). If you want to lazily extract metadata
-        yourself, set `extract_song` to False. Even if the flag is set to False,
-        the metadata may already be cached in.
+        If `block` is True, will wait for a new url to get queued up if there
+        isn't one already. If False, will return None.
         """
-        # Try to get a valid song in a loop
-        song = None
-        while song is None:
-            # If there isn't a song available and we're not blocking, return.
-            # Otherwise wait for a song to appear.
-            if not self._song_available.is_set():
-                if not block:
-                    return None
-                self._song_available.wait()
+        # If there isn't a song available and we're not blocking, return.
+        # Otherwise wait for a song to appear.
+        if not self._song_available.is_set():
+            if not block:
+                return None
+            self._song_available.wait()
 
-            # Get a song
-            idx = 0
-            if self.shuffle:
-                idx = randint(0, len(self.songs) - 1)
-            (url, song) = self.songs.pop(idx)
+        # Get a song
+        idx = 0
+        if self.shuffle:
+            idx = randint(0, len(self.songs) - 1)
+        url = self.pop(idx)
 
-            # If the queue becomes empty as the result of us popping the song,
-            # unset the song availibility flag
-            if len(self.songs) == 0:
-                self._song_available.clear()
-
-            # If we don't want to extract the metadata, just return what we have
-            # found. We don't have to make sure that it is valid.
-            if not extract_song:
-                return (url, song)
-
-            # Get the song. If the song is invalid, this loop will repeat
-            (url, song) = self.extract_song(url)
-
-        # Return what we have found
-        return (url, song)
-
-
-    def invalidate_cache(self, url: str):
-        """Invalidates (removes) a song entry from the global cache."""
-        SongQueue.global_cache.pop(url, None)
-
-
-    def invalidate_next_song(self):
-        """Uncaches the next_song and pushes it to the back of the queue"""
-        self.push(self.next_song)
-        self.next_song = None
-
-
-    def extract_song(self, url: str, recache=False) -> (str, Song):
-        """
-        Extracts a song and returns the (url, Song) pair.
-        This function uses the global cache. If you want to recache a song
-        (invalidate the old entry), set `recache` to True.
-
-        If the song is invalid (if the metadata doesn't contain a stream),
-        returns None.
-        """
-        song = None
-
-        # If we use the cache, check if we have the song cached already
-        if not recache:
-            song = SongQueue.global_cache.get(url)
-
-            # If we found the song, return it
-            if song is not None:
-                return (url, song)
-
-        # Extract the song metadata
-        if song is None:
-            song = Song(url)
-
-        # Check that we have a valid song
-        if song.stream is None:
-            return None
-
-        # Cache the result and return it
-        SongQueue.global_cache[url] = song
-        return (url, song)
+        # Return the url
+        return url
 
 
     def clear(self):
         """Clears the queue"""
         # Invalidate the song but don't push it back to the queue
-        self.next_song = None
-        self._song_available.clear()
         self.songs.clear()
+        self._song_available.clear()
 
 
     def pause(self):
@@ -234,19 +171,45 @@ class SongQueue():
         """
         The target function running in the background that plays music in a VC.
         """
+        # Pipe used in `prioritized_extract_cache()`
+        (receiver, transmitter) = mp.Pipe()
+        transmitter.send(None)
+
+        # Loop for as long as the queue is alive
         while not self._stop_threads:
-            # Clear the next_song event flag
-            self._start_next_song.clear()
+            gLog.debug(f"Another cycle in player target")
 
             # If we're not looping the current song
             if not self.loop_song:
-                # If `self.next_song` is None, get a new song while blocking
-                if self.next_song is None:
-                    self.next_song = self.next(block=True, extract_song=True)
+                gLog.debug(f"Song is not looping.")
 
-                # Set the current song and also try to get a new song
-                self.current_song = self.next_song
-                self.next_song    = self.next(block=False, extract_song=False)
+                # Wait for the extraction of the next song to finish
+                self.current_song = receiver.recv()
+                gLog.debug(f"Received song: {self.current_song}. Caching next.")
+
+                # Try and cache a new song
+                next_url = self.next(block=False)
+                self.cache.prioritized_extract_cache(next_url, transmitter)
+
+            # If we still don't have a song to play right now
+            while self.current_song is None:
+                gLog.debug(f"Getting a new song in loop")
+
+                # Wait for the next song to get cached
+                self.current_song = receiver.recv()
+                gLog.debug(f"Received song: {self.current_song}. Caching next.")
+
+                # Get the next url from the queue.
+                # If the current song is still None, block until there is a url
+                # for sure.
+                if self.current_song is None:
+                    next_url = self.next(block=True)
+                else:
+                    next_url = self.next(block=False)
+                gLog.debug(f"Next url in the queue: {next_url}")
+
+                # Cache the next song before we play it
+                self.cache.prioritized_extract_cache(next_url, transmitter)
 
             # FFMPEG options to prevent stream closing on lost connections
             before_options  = "-reconnect 1 -reconnect_streamed 1"
@@ -254,7 +217,7 @@ class SongQueue():
 
             # Play the song and when it stops, call `_play_next_song`
             source = discord.FFmpegPCMAudio(
-                self.current_song[1].stream,
+                self.current_song.stream,
                 before_options=before_options
             )
 
@@ -266,31 +229,10 @@ class SongQueue():
                 gLog.warn(f"While playing: {e}. (Probably left the channel.)")
                 break
 
-
-            # If we're currently looping, don't even dare to delay >:(
-            if not self.loop_song:
-
-                # XXX: If we enable looping at this point, these functions
-                #      will still be blocking...
-
-                # If the there's no next song to play, wait for a new song
-                # to become available
-                if self.next_song is None:
-                    self.next_song = self.next(block=True, extract_song=True)
-
-                # If there is a song available but it hasn't been extracted yet,
-                # extract it
-                if self.next_song[1] is None:
-                    self.next_song = self.extract_song(self.next_song[0])
-
-                # If the song is invalid, wait for a new *valid* song
-                if self.next_song is None:
-                    self.next_song = self.next(block=True, extract_song=True)
-
-            # At this point `self.next_song` is set to a valid song, so we can
-            # safely wait for the current song to finish.
-            # Either that or we're looping the current song
+            # Wait for the current song to stop playing
+            gLog.debug(f"Waiting for the current song to finish playing.")
             self._start_next_song.wait()
+            self._start_next_song.clear()
 
 
     def _play_next_song(self, error=None):
@@ -301,4 +243,6 @@ class SongQueue():
         """
         if error:
             gLog.critical(f"While trying to play next song: {str(error)}")
+
+        # Signal that we can start playing the next song
         self._start_next_song.set()

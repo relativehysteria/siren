@@ -3,21 +3,16 @@ into it.
 
 Requires py-cord and pynacl.
 
-__There are plenty of race conditions in the `song_queue.py` code but it does in fact work in most cases!__ :D
+The codebase is not thoroughly tested and because I tried to write code without
+explicit locks (only used events, queues, pipes), there may be some race
+conditions present. So far, every now and then, a song doesn't get received
+through the pipe and the player thread deadlocks. I don't know what causes this
+but will try to find out. :|
 
 ### TODO
 * When the bot is kicked from a VC, the queue is not destroyed and the bot can't
   reconnect (because a queue for the guild is already present -- the bot thinks
   it is still connected to the voice chat).
-
-* Write a background thread that will extract and cache the song
-  metadata while the bot is playing one already. At the moment the metadata is
-  lazily extracted _one song before_ it starts playing. This is good, because
-  a single `/skip` command won't create a small delay before the song starts
-  playing (we don't have to wait for the metadata to be extracted as it is
-  already cached). However it's not sufficient for multiple successive `/skip`s.  
-  It could also take care of re-caching the next song whenever `/shuffle` gets
-  called.
 
 * Optimize the command algorithm, especially the `/skip` command and any of the
   commands that toggle a state (e.g. `/shuffle` or `/pause`).
@@ -34,3 +29,16 @@ __There are plenty of race conditions in the `song_queue.py` code but it does in
 
 * Write a destructor for SongQueue and call it whenever the bot is disconnected
   from a voice chat.
+
+* In SongQueue, set `_stop_threads`: unlock all blocking stuff and shit and
+  close all pipes.
+
+* On shuffle and clear, invalidate the song received from the caching process
+  and get a new one (in `_song_player_target()`)
+
+* If we're running on UNIX* and have root privs, decrease the process niceness
+  in prioritized cache extractors
+
+* Set the default logger to INFO and get logging options from the environment
+
+* Write tests
