@@ -32,4 +32,7 @@ but will try to find out. :|
 
 * Disconnect after a certain time of inactivity
 
+* At some point, the cached songs may become stale. Implement some sort of a
+  re-caching algorithm
+
 * Write tests
