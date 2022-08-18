@@ -27,12 +27,6 @@ but will try to find out. :|
   sequence, evaluate them as 1. Or if there are 4 `/pause` commands in a
   sequence, just remove them completely.
 
-* Write a destructor for SongQueue and call it whenever the bot is disconnected
-  from a voice chat.
-
-* In SongQueue, set `_stop_threads`: unlock all blocking stuff and shit and
-  close all pipes.
-
 * On shuffle and clear, invalidate the song received from the caching process
   and get a new one (in `_song_player_target()`)
 
