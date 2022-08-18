@@ -11,7 +11,7 @@ LOG_FORMAT      = "{asctime} | {levelname:^8} | {processName} | \
 ({filename}:{lineno}) >> {message}"
 
 # Set the logging level based on environment. INFO by default
-match getenv("SIREN_LOG_LEVEL", None).lower():
+match getenv("SIREN_LOG_LEVEL", "info").lower():
     case "debug":
         LOG_LEVEL = logging.DEBUG
     case "warning":
