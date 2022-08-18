@@ -1,6 +1,10 @@
 Create a file -- `TOKEN` -- in the root directory of this bot and put your token
 into it.
 
+The logging level is based on the `SIREN_LOG_LEVEL` environment variable.
+If it isn't set, it defaults to `info` (the levels are the same as the python
+logging levels).
+
 Requires py-cord and pynacl.
 
 The codebase is not thoroughly tested and because I tried to write code without
