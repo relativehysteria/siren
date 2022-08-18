@@ -150,7 +150,9 @@ def get_urls_from_query(query: str) -> [str]:
     with YoutubeDL(ydl_opts) as ytdl:
         result = ytdl.extract_info(query, download=False)
 
-    gLog.debug(f"Extraction result: {result}")
+    # # The following debug message is extremely verbose. And is most likely
+    # # not needed.
+    # gLog.debug(f"Extraction result: {result}")
 
     # We got a direct url to a single song
     if 'entries' not in result:

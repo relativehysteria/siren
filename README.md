@@ -39,4 +39,6 @@ but will try to find out. :|
 * If we're running on UNIX* and have root privs, decrease the process niceness
   in prioritized cache extractors
 
+* Disconnect after a certain time of inactivity
+
 * Write tests

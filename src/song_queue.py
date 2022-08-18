@@ -89,6 +89,29 @@ class SongQueue:
         return len(self.songs)
 
 
+    def __del__(self):
+        self.destroy()
+
+
+    async def destroy(self):
+        """Explicit destructor"""
+        gLog.debug("Destructor called.")
+
+        # Stop all threads
+        self._stop_threads = True
+        gLog.debug("Stopped threads.")
+
+        # Unblock all blocking operations.
+        self._song_available.set()
+        self._start_next_song.set()
+        gLog.debug("Unblocked operations.")
+
+        # Disconnect from the voice channel
+        if self.voice is not None and self.voice.is_connected():
+            gLog.debug(f"Disconnected from voice {self.voice}.")
+            await self.voice.disconnect()
+
+
     def push(self, url: str, metadata: Song = None):
         """Pushes a url to the back of the queue"""
         self.songs.append(url)
@@ -136,12 +159,15 @@ class SongQueue:
         self._song_available.clear()
 
 
-    def pause(self):
-        """Pause/Unpause the current song"""
+    def pause(self) -> bool:
+        """Pause/Unpause the current song and return whether the song is paused
+        or not."""
         if self.voice.is_paused():
             self.voice.resume()
+            return False
         elif self.voice.is_playing():
             self.voice.pause()
+            return True
 
 
     def toggle_song_loop(self):

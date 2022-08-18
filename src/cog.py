@@ -88,7 +88,7 @@ class Siren(commands.Cog):
 
         # Try and leave the voice channel
         try:
-            await queue.voice.disconnect()
+            await queue.destroy()
             self.queues.pop(ctx.guild_id)
             await response.edit_original_message(content="Disconnected!")
             gLog.info(f"Left a voice channel in: {ctx.guild.name}")
@@ -145,8 +145,10 @@ class Siren(commands.Cog):
             return
 
         # Pause the song
-        queue.pause()
-        await response.edit_original_message(content="Paused!")
+        msg= "Unpaused!"
+        if queue.pause():
+            msg = "Paused!"
+        await response.edit_original_message(content=msg)
 
 
     @commands.slash_command(name="clear", description="Clear the queue")
@@ -271,6 +273,7 @@ class Siren(commands.Cog):
         # we have been kicked from it. Destroy the queue.
         if queue is not None:
             if queue.voice is None or not queue.voice.is_connected():
+                await queue.destroy()
                 del self.queues[ctx.guild_id]
                 queue = None
 

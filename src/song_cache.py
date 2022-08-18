@@ -1,4 +1,5 @@
 from multiprocessing.connection import Connection
+from multiprocessing import Manager
 from queue import Empty as QueueEmpty
 import multiprocessing as mp
 from song import Song
@@ -25,9 +26,12 @@ class SongCache:
         if pool_size < 1:
             raise ValueError("pool_size is too low.")
 
+        # The manager for the shared internal `self.cache`
+        self.shared_manager = Manager()
+
         # The internal cache for song metadata
         # { url: Song }
-        self.cache = dict()
+        self.cache = self.shared_manager.dict()
 
         # A queue of urls. Urls in this queue get cached as soon as possible.
         # This is usually a queue of all the `SongQueue.next_song`s.
@@ -209,5 +213,6 @@ def safe_pipe_send(pipe: Connection, obj) -> bool:
     """
     try:
         pipe.send(obj)
-    except BrokenPipeError:
+    except BrokenPipeError as e:
+        gLog.debug(f"Got pipe error: {e}")
         return False
