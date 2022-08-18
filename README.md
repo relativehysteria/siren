@@ -30,9 +30,6 @@ but will try to find out. :|
 * On shuffle and clear, invalidate the song received from the caching process
   and get a new one (in `_song_player_target()`)
 
-* If we're running on UNIX* and have root privs, decrease the process niceness
-  in prioritized cache extractors
-
 * Disconnect after a certain time of inactivity
 
 * Write tests
