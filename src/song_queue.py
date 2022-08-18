@@ -153,9 +153,6 @@ class SongQueue:
         """Turn on/off shuffle mode"""
         self.shuffle = not self.shuffle
 
-        # Invalidate next_song so that we don't cache stale songs
-        self.invalidate_next_song()
-
 
     def skip(self):
         """Skips the currently playing song"""
