@@ -267,6 +267,13 @@ class Siren(commands.Cog):
         # Get the voice channel this bot is connected to
         queue = self.queues.get(ctx.guild_id)
 
+        # If we aren't connected to a voice channel but we do track a queue,
+        # we have been kicked from it. Destroy the queue.
+        if queue is not None:
+            if queue.voice is None or not queue.voice.is_connected():
+                del self.queues[ctx.guild_id]
+                queue = None
+
         # Check if we are connected to a voice channel
         if queue is None:
             resp = await ctx.respond(content="I'm not connected to a VC!")

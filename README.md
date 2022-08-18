@@ -14,10 +14,6 @@ through the pipe and the player thread deadlocks. I don't know what causes this
 but will try to find out. :|
 
 ### TODO
-* When the bot is kicked from a VC, the queue is not destroyed and the bot can't
-  reconnect (because a queue for the guild is already present -- the bot thinks
-  it is still connected to the voice chat).
-
 * Optimize the command algorithm, especially the `/skip` command and any of the
   commands that toggle a state (e.g. `/shuffle` or `/pause`).
   Multiple `/skip` commands issued in rapid sequence _do_ in fact create a
