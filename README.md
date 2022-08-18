@@ -39,6 +39,4 @@ but will try to find out. :|
 * If we're running on UNIX* and have root privs, decrease the process niceness
   in prioritized cache extractors
 
-* Set the default logger to INFO and get logging options from the environment
-
 * Write tests

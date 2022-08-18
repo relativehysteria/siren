@@ -1,14 +1,27 @@
 import logging
 from multiprocessing import current_process
+from os import getenv
 
 # Settings for the primary logger
 USE_LOG_COLORS  = True   # Whether to use colored output in the terminal
 LOG_TO_FILE     = True   # Whether to log into a file
 LOG_TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 LOG_FILE        = r"siren_cog.log"
-LOG_LEVEL       = logging.DEBUG
 LOG_FORMAT      = "{asctime} | {levelname:^8} | {processName} | \
 ({filename}:{lineno}) >> {message}"
+
+# Set the logging level based on environment. INFO by default
+match getenv("SIREN_LOG_LEVEL", None).lower():
+    case "debug":
+        LOG_LEVEL = logging.DEBUG
+    case "warning":
+        LOG_LEVEL = logging.WARNING
+    case "error":
+        LOG_LEVEL = logging.ERROR
+    case "critical":
+        LOG_LEVEL = logging.CRITICAL
+    case other:
+        LOG_LEVEL = logging.INFO
 
 # A log formatter capable of outputting colors
 class ColoredFormatter(logging.Formatter):
