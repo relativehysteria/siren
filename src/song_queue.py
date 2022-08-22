@@ -90,10 +90,6 @@ class SongQueue:
 
 
     def __del__(self):
-        self.destroy()
-
-
-    async def destroy(self):
         """Explicit destructor"""
         gLog.debug("Destructor called.")
 
@@ -105,6 +101,10 @@ class SongQueue:
         self._song_available.set()
         self._start_next_song.set()
         gLog.debug("Unblocked operations.")
+
+
+    async def destroy(self):
+        self.__del__()
 
         # Disconnect from the voice channel
         if self.voice is not None and self.voice.is_connected():
