@@ -238,7 +238,7 @@ class Siren(commands.Cog):
         # Toggle the loop mode
         queue.toggle_song_loop()
 
-        gLog.debug(f"Loop in: {ctx.guild.name} >> {queue.loop}")
+        gLog.debug(f"Loop in: {ctx.guild.name} >> {queue.loop_song}")
 
         # Send a notification about the shuffle status
         msg = "Looping disabled."

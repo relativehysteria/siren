@@ -47,7 +47,7 @@ class Song:
             return
 
         for f in formats:
-            if f['acodec'].lower() == "none":
+            if f.get('acodec') is None or f['acodec'].lower() == "none":
                 continue
             self.stream = f.get("url")
             gLog.debug(f"Stream URL: {self.stream}")
