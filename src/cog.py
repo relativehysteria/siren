@@ -3,7 +3,6 @@
 # The intents required by this bot are:
 #     voice_states
 
-from os import sched_getaffinity
 import discord
 from discord import Option
 from discord import ApplicationContext
@@ -16,6 +15,16 @@ from song import get_urls_from_query
 from song import Song
 from song_cache import SongCache
 from log import globalLog as gLog
+
+def get_affinity() -> int:
+    """Returns the affinity of the current process if possible.
+    If not possible, returns the number of CPUs on the system."""
+    try:
+        from os import sched_getaffinity
+        return len(sched_getaffinity(0))
+    except ImportError:
+        from os import cpu_count
+        return cpu_count
 
 class Siren(commands.Cog):
     def __init__(self, bot, caching_processes: int = 0):
@@ -35,7 +44,7 @@ class Siren(commands.Cog):
 
         # Inner song metadata cache
         if caching_processes < 1:
-            caching_processes = len(sched_getaffinity(0))
+            caching_processes = get_affinity()
         self.song_cache = SongCache(pool_size=caching_processes)
 
         gLog.debug("Siren cog initialized.")

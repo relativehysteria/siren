@@ -68,9 +68,9 @@ class SongQueue:
 
     def __delitem__(self, idx):
         # If the queue will be empty, clear the song availibility flag
-        del self.songs[idx]
-        if len(self.songs) == 0:
+        if len(self.songs) == 1:
             self._song_available.clear()
+        del self.songs[idx]
 
 
     def __iter__(self):
@@ -155,8 +155,8 @@ class SongQueue:
     def clear(self):
         """Clears the queue"""
         # Invalidate the song but don't push it back to the queue
-        self.songs.clear()
         self._song_available.clear()
+        self.songs.clear()
 
 
     def pause(self) -> bool:
