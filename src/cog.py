@@ -24,7 +24,8 @@ def get_affinity() -> int:
         return len(sched_getaffinity(0))
     except ImportError:
         from os import cpu_count
-        return cpu_count
+        return cpu_count()
+
 
 class Siren(commands.Cog):
     def __init__(self, bot, caching_processes: int = 0):
