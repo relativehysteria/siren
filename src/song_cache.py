@@ -168,42 +168,6 @@ class SongCache:
         self._song_available.set()
 
 
-    def get(self, url: str, extract: bool = False) -> Song:
-        """Gets a song from the cache.
-
-        If `extract` is False and the song is not present in the cache,
-        returns None.
-        If `extract` is True and the song is not present in the cache,
-        it is extracted (with high priority) and cached before being returned
-        (until the song is cached, this function will block).
-        If the song is invalid, returns None
-        """
-        gLog.debug(f"Request to get a url from the cache: {url}")
-
-        # Make sure we were given a valid string
-        if not isinstance(url, str):
-            return None
-
-        # Check if the song is already cached
-        if url in self.cache.url:
-            return self.cache[url]
-
-        gLog.debug(f"Url not present in cache.")
-
-        # The song isn't cached. If we don't want to extract it, return
-        if not extract:
-            return None
-
-        # We want to extract the song. Put it into the prioritized queue
-        # and wait for it to get cached
-        (receiver, transmitter) = mp.Pipe()
-        self.prioritized_extract_cache(url, transmitter)
-        song = receiver.recv()
-
-        # The song is cached: return it.
-        return song
-
-
 def safe_pipe_send(pipe: Connection, obj) -> bool:
     """
     A safe wrapper around `pipe.send` that doesn't let any exceptions through.
